@@ -44,6 +44,10 @@ node .\dist\server\server.js
     npm run dev
 ```
 
+////////////////////////////////////////////////////////
+想要直接看运行效果，运行在output文件夹中的index.html
+///////////////////////////////////////////////////////
+
 二、问题记录
 
 1.报错内容：Failed to resolve module specifier "three". Relative references must start with either "/", "./", or "../".
