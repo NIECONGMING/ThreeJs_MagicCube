@@ -39,6 +39,11 @@ tsc -p ./src/server
 node .\dist\server\server.js 
 ```
 
+开发环境运行,package.json文件夹已经配置
+```step
+    npm run dev
+```
+
 二、问题记录
 
 1.报错内容：Failed to resolve module specifier "three". Relative references must start with either "/", "./", or "../".
