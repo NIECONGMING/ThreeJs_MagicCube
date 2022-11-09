@@ -1,13 +1,14 @@
 {
   "name": "threejs_magicsquare",
   "version": "1.0.0",
-  "main": "index.js",
+  "main": "index.html",
   "directories": {
     "lib": "lib"
   },
   "scripts": {
     "test": "parcel ./src/server/server.js",
-    "dev": "concurrently -k \"tsc -p ./src/client -w\" \"tsc -p ./src/server -w\" \"nodemon ./dist/server/server.js\""
+    "dev": "concurrently -k \"tsc -p ./src/client -w\" \"tsc -p ./src/server -w\" \"nodemon ./dist/server/server.js\"",
+    "build":"concurrently -k \"nodemon ./output/server/server.js\""
   },
   "author": "",
   "license": "ISC",
@@ -17,6 +18,7 @@
     "@types/node": "^17.0.24",
     "@types/three": "^0.139.0",
     "concurrently": "^7.5.0",
+    "dat.gui": "^0.7.9",
     "express": "^4.17.3",
     "nodemon": "^2.0.20"
   },
