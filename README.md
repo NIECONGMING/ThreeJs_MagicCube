@@ -39,11 +39,6 @@ tsc -p ./src/server
 node .\dist\server\server.js 
 ```
 
-
-后续框架流程
-```step
-参考网址：https://zhuanlan.zhihu.com/p/366176446
-```
 二、问题记录
 
 1.报错内容：Failed to resolve module specifier "three". Relative references must start with either "/", "./", or "../".
