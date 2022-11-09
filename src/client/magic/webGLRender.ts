@@ -1,7 +1,6 @@
 import * as THREE from '/build/three.module.js'
 import { OrbitControls } from '/jsm/controls/OrbitControls'
-import { Scene } from './scene';
-import { Camera } from './camera';
+
 export class WebGLRenderer
 {
     private _WebGLRenderer : THREE.WebGLRenderer;
@@ -10,7 +9,7 @@ export class WebGLRenderer
         this._WebGLRenderer = new THREE.WebGLRenderer(parameters);
     }
 
-    public render(scene:Scene,camera:Camera)
+    public render(scene:THREE.Scene,camera:THREE.Camera)
     {   
         this._WebGLRenderer.clear();
         this._WebGLRenderer.render(scene,camera);

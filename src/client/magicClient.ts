@@ -1,19 +1,27 @@
 import * as THREE from '/build/three.module.js' 
+
+import * as dat from '/dat.gui'
+
 import { OrbitControls } from '/jsm/controls/OrbitControls'
 import { WebGLRenderer } from './magic/webGLRender'
 import { BufferBigEndian } from './unicodeText'
 import {MagicBoxGeometry} from "./magic/MagicBoxGeometry"
+
+import {CubeUntils} from "./CubeUntils"
 export class MagicSquare
 {
     private _camera:THREE.PerspectiveCamera;
     private _scene:THREE.Scene;
+    private _plane:THREE.Mesh;
     private _light:THREE.AmbientLight;
+    private _dirLight: THREE.DirectionalLight;
     private _renderer:THREE.WebGLRenderer;
     private _controller:OrbitControls;
-    private _cubes;
+    private _color:THREE.Color
+    private _cubes:THREE.Mesh[];
 
-    private _width;//页面宽度
-    private _height;//页面高度
+    private _width :number;//页面宽度
+    private _height:number;//页面高度
 
 
     private _mouse :THREE.Vector2;
@@ -27,15 +35,17 @@ export class MagicSquare
     private _movePoint;
     private _raycaster;//光线碰撞检测器
     private _initStatus = [];//魔方初始状态
-    private _cubeParams;
 
-    // //魔方转动的六个方向
-    private _xLine ;//X轴正方向
-    private _xLineAd ;//X轴负方向
-    private _yLine ;//Y轴正方向
-    private _yLineAd ;//Y轴负方向
-    private _zLine ;//Z轴正方向
-    private _zLineAd ;//Z轴负方向
+    private static CubeParams= {
+        x:0,
+        y:0,
+        z:0,
+        num:3,
+        len:50,
+        color:['rgba(255,193,37,1)','rgba(0,191,255,1)',
+                'rgba(50,205,50,1)','rgba(178,34,34,1)',
+                'rgba(255,255,0,1)','rgba(255,255,255,1)']
+    };
 
     constructor()
     {
@@ -67,33 +77,16 @@ export class MagicSquare
         this._initStatus = [];//魔方初始状态
         this._intersectObjectIndex = 0;
 
-        this._cubeParams = null;
-
         this._raycaster = new THREE.Raycaster();//光线碰撞检测器
         this._mouse = new THREE.Vector2();
-        this._xLine = new THREE.Vector3( 1, 0, 0 );//X轴正方向
-        this._xLineAd = new THREE.Vector3( -1, 0, 0 );//X轴负方向
-        this._yLine = new THREE.Vector3( 0, 1, 0 );//Y轴正方向
-        this._yLineAd = new THREE.Vector3( 0, -1, 0 );//Y轴负方向
-        this._zLine = new THREE.Vector3( 0, 0, 1 );//Z轴正方向
-        this._zLineAd = new THREE.Vector3( 0, 0, -1 );//Z轴负方向
 
-        
         this._origPoint = new THREE.Vector3(0, 0, 0);
+        this._color  = new THREE.Color("#000000");
     }
     
     public init()
     {
         console.log('magic Client!!!!!!!!!!!')
-        this._cubeParams = {x:0,
-            y:0,
-            z:0,
-            num:3,
-            len:50,
-            color:['rgba(255,193,37,1)','rgba(0,191,255,1)',
-                    'rgba(50,205,50,1)','rgba(178,34,34,1)',
-                    'rgba(255,255,0,1)','rgba(255,255,255,1)']
-        };
 
         this.initThree();
         this.initCamera(this._width,this._height);
@@ -102,6 +95,7 @@ export class MagicSquare
         this.initObject(this._scene);
         this.render();
 
+        this.initPlane();
     
         //视角控制
         this._controller = new OrbitControls(this._camera,this._renderer.domElement);
@@ -149,6 +143,8 @@ export class MagicSquare
     private initScene()
     {
         this._scene = new THREE.Scene();
+        this._color.set('#c0c0c0')
+        this._scene.background = this._color;
     }
 
 
@@ -156,13 +152,18 @@ export class MagicSquare
     {
         this._light = new THREE.AmbientLight();
         scene.add(this._light);
+
+        
+        this._dirLight = new THREE.DirectionalLight();
+        this._dirLight.position.set(150,200,200);
+        this._scene.add(this._dirLight);
     }
 
     
-    private initObject(scene)
+    private initObject(scene:THREE.Scene)
     {
-        this._cubes = this.simpleCube(this._cubeParams.x,this._cubeParams.y,this._cubeParams.z,
-            this._cubeParams.num,this._cubeParams.len,this._cubeParams.color);
+        this._cubes = this.simpleCube(MagicSquare.CubeParams.x,MagicSquare.CubeParams.y,MagicSquare.CubeParams.z,
+            MagicSquare.CubeParams.num,MagicSquare.CubeParams.len,MagicSquare.CubeParams.color);
 
         for(let i = 0; i< this._cubes.length;i++)
         {
@@ -174,7 +175,7 @@ export class MagicSquare
                 cubeIndex:item.id
             });
             scene.add(this._cubes[i]);
-            item.cubeIndex = item.id;
+            item['cubeIndex'] = item.id;
         }
             
         // //透明正方体
@@ -191,6 +192,97 @@ export class MagicSquare
         scene.add( cube );
         
     }
+
+    public switchShadow(bswitch:boolean = true)
+    {
+        //开启阴影条件
+        //1.材质要满足足够对光有反应
+        //2.设置渲染器开启阴影的计算 render.shadowMap.enabled = true;
+        //3.设置光照投射阴影 directionlLight.castshaow = true;
+        //4.设置物体投射阴影 sphere.castshadow = true;
+        //5.设置物体接收阴影 plane.receiceshadow = true;
+
+        this._dirLight.castShadow = bswitch
+        
+        this._renderer.shadowMap.enabled = bswitch;
+        this._plane.receiveShadow = bswitch;
+        
+        for(let i =0;i<this._cubes.length;i++)
+        {
+            this._cubes[0].castShadow = bswitch;
+            
+        }
+        // this._cubes[0].castShadow = true;
+        // directionlLight.castshaow = true;
+    }
+
+    public initPlane()
+    {
+        //材质
+        let standMaterial = new THREE.MeshStandardMaterial({color:"#56005D" });
+
+        //添加平面
+        this._plane = new THREE.Mesh(
+            new THREE.PlaneGeometry(300,300),
+            standMaterial
+        )
+        this._plane.position.set(0,-90,0)
+        this._plane.rotation.set(1.57,0,0)
+        this._scene.add(this._plane);
+
+        standMaterial.side = THREE.DoubleSide
+
+        
+        let num = {
+            x:5,
+            isOpenAmlight:true,
+            isopenDirLight:true,
+            dirLightIntensity:100
+        }
+        let _gui = new dat.GUI();
+
+        _gui.addColor({color:"#3e3e3e"},"color")
+            .name('改变背景色')
+            .onChange((val)=>{
+                this._color.set( val);
+                this._scene.background =  this._color
+                
+            });
+
+        _gui.add(num,"isOpenAmlight")
+            .name('开关环境光')
+            .onChange((val)=>{
+                this._light.visible = val;
+            })
+        _gui.add(num,"isopenDirLight")
+            .name('开关太阳光')
+            .onChange((val)=>{
+                this._dirLight.visible = val;
+            })
+        _gui.add(num,"dirLightIntensity")
+            .min(0)
+            .max(100)
+            .step(2)
+            .name('设置太阳光亮度')
+            .onChange((val)=>{
+                if( this._dirLight.visible )
+                {
+                    this._dirLight.intensity = val;
+                }
+            })
+        _gui.add(num,"x")
+            .min(-50)
+            .max(50)
+            .step(0.01)
+            .name('改变太阳光x轴')
+            .onChange((vall)=>{
+                console.log('值被修改',vall)
+                this._dirLight.position.x = vall;
+            });
+
+        console.log(_gui);
+    }
+
     public render()
     {
         this._renderer.render(this._scene,this._camera);
@@ -235,27 +327,9 @@ export class MagicSquare
 
     private faces(color:string):HTMLCanvasElement
     {
-        let canvas = document.createElement('canvas');
-        canvas.width = 256;
-        canvas.height = 256;
-        let context = canvas.getContext('2d');
-        if(context)
-        {
-            context.fillStyle = 'rgba(0,0,0,1)';
-            context.fillRect(0,0,256,256);
-            context.rect(16,16,224,224);
-            context.lineJoin = 'round';
-            context.lineWidth = 16;
-            context.fillStyle = color;
-            context.strokeStyle = color;
-            context.stroke();
-            context.fill();
-        }
-        else
-        {
-            console.error('您的浏览器不支持Canvas无法预览');
-        }
-        return canvas;
+        let canvas  = CubeUntils.createCanvasByColor(256,256,color);
+
+        return canvas
     }
 
 
@@ -263,10 +337,12 @@ export class MagicSquare
     {
         this.getIntersects(event);
         //魔方没有处于转动过程中且存在碰撞物体
-        if(!this._isRotating&&this._intersect){
+        if(!this._isRotating&&this._intersect)
+        {
             this._startPoint = this._intersect.point;//开始转动，设置起始点
             this._controller.enabled = false;//当刚开始的接触点在魔方上时操作为转动魔方，屏蔽控制器转动
-        }else{
+        }else
+        {
             this._controller.enabled = true;//当刚开始的接触点没有在魔方上或者在魔方上但是魔方正在转动时操作转动控制器
         }
     }
@@ -301,13 +377,6 @@ export class MagicSquare
     //获取操作焦点以及该焦点所在平面的法向量
     private getIntersects(event)
     {
-        //触摸事件和鼠标事件获得坐标的方式有点区别
-        if(event.touches)
-        {
-            var touch = event.touches[0];
-            this._mouse.x = (touch.clientX / this._width)*2 - 1;
-            this._mouse.y = -(touch.clientY / this._height)*2 + 1;
-        }else
         {
             this._mouse.x = (event.clientX / this._width)*2 - 1;
             this._mouse.y = -(event.clientY / this._height)*2 + 1;
@@ -316,7 +385,8 @@ export class MagicSquare
         this._raycaster.setFromCamera(this._mouse, this._camera);
         //Raycaster方式定位选取元素，可能会选取多个，以第一个为准
         let intersects = this._raycaster.intersectObjects(this._scene.children);
-        if(intersects.length){
+        if(intersects.length)
+        {
             try
             {
                 if(intersects[0].object.cubeType==='coverCube')
@@ -342,42 +412,52 @@ export class MagicSquare
             catch(err)
             {
                 //nothing
+                console.warn('MagicClient ',err);
             }
         }
     }
 
     //获得旋转方向
-    public getDirection(vector3){
+    public getDirection(vector3)
+    {
         let direction;
         //判断差向量和x、y、z轴的夹角
-        let xAngle = vector3.angleTo(this._xLine);
-        let xAngleAd = vector3.angleTo(this._xLineAd);
-        let yAngle = vector3.angleTo(this._yLine);
-        let yAngleAd = vector3.angleTo(this._yLineAd);
-        let zAngle = vector3.angleTo(this._zLine);
-        let zAngleAd = vector3.angleTo(this._zLineAd);
-        let minAngle = this.min([xAngle,xAngleAd,yAngle,yAngleAd,zAngle,zAngleAd]);//最小夹角
+        let xAngle = vector3.angleTo(CubeUntils.xLine);
+        let xAngleAd = vector3.angleTo(CubeUntils.xLineAd);
+        let yAngle = vector3.angleTo(CubeUntils.yLine);
+        let yAngleAd = vector3.angleTo(CubeUntils.yLineAd);
+        let zAngle = vector3.angleTo(CubeUntils.zLine);
+        let zAngleAd = vector3.angleTo(CubeUntils.zLineAd);
+        let minAngle = CubeUntils.min([xAngle,xAngleAd,yAngle,yAngleAd,zAngle,zAngleAd]);//最小夹角
 
-        switch(minAngle){
+        switch(minAngle)
+        {
             case xAngle:
                 direction = 0;//向x轴正方向旋转90度（还要区分是绕z轴还是绕y轴）
-                if(this._normalize.equals(this._yLine)){
+                if(this._normalize.equals(CubeUntils.yLine))
+                {
                     direction = direction+0.1;//绕z轴顺时针
-                }else if(this._normalize.equals(this._yLineAd)){
+                }else if(this._normalize.equals(CubeUntils.yLineAd))
+                {
                     direction = direction+0.2;//绕z轴逆时针
-                }else if(this._normalize.equals(this._zLine)){
+                }else if(this._normalize.equals(CubeUntils.zLine))
+                {
                     direction = direction+0.3;//绕y轴逆时针
-                }else{
+                }else
+                {
                     direction = direction+0.4;//绕y轴顺时针
                 }
                 break;
             case xAngleAd:
                 direction = 1;//向x轴反方向旋转90度
-                if(this._normalize.equals(this._yLine)){
+                if(this._normalize.equals(CubeUntils.yLine))
+                {
                     direction = direction+0.1;//绕z轴逆时针
-                }else if(this._normalize.equals(this._yLineAd)){
+                }else if(this._normalize.equals(CubeUntils.yLineAd))
+                {
                     direction = direction+0.2;//绕z轴顺时针
-                }else if(this._normalize.equals(this._zLine)){
+                }else if(this._normalize.equals(CubeUntils.zLine))
+                {
                     direction = direction+0.3;//绕y轴顺时针
                 }else{
                     direction = direction+0.4;//绕y轴逆时针
@@ -385,49 +465,65 @@ export class MagicSquare
                 break;
             case yAngle:
                 direction = 2;//向y轴正方向旋转90度
-                if(this._normalize.equals(this._zLine)){
+                if(this._normalize.equals(CubeUntils.zLine))
+                {
                     direction = direction+0.1;//绕x轴逆时针
-                }else if(this._normalize.equals(this._zLineAd)){
+                }else if(this._normalize.equals(CubeUntils.zLineAd))
+                {
                     direction = direction+0.2;//绕x轴顺时针
-                }else if(this._normalize.equals(this._xLine)){
+                }else if(this._normalize.equals(CubeUntils.xLine))
+                {
                     direction = direction+0.3;//绕z轴逆时针
-                }else{
+                }else
+                {
                     direction = direction+0.4;//绕z轴顺时针
                 }
                 break;
             case yAngleAd:
                 direction = 3;//向y轴反方向旋转90度
-                if(this._normalize.equals(this._zLine)){
+                if(this._normalize.equals(CubeUntils.zLine))
+                {
                     direction = direction+0.1;//绕x轴顺时针
-                }else if(this._normalize.equals(this._zLineAd)){
+                }else if(this._normalize.equals(CubeUntils.zLineAd))
+                {
                     direction = direction+0.2;//绕x轴逆时针
-                }else if(this._normalize.equals(this._xLine)){
+                }else if(this._normalize.equals(CubeUntils.xLine))
+                {
                     direction = direction+0.3;//绕z轴顺时针
-                }else{
+                }else
+                {
                     direction = direction+0.4;//绕z轴逆时针
                 }
                 break;
             case zAngle:
                 direction = 4;//向z轴正方向旋转90度
-                if(this._normalize.equals(this._yLine)){
+                if(this._normalize.equals(CubeUntils.yLine))
+                {
                     direction = direction+0.1;//绕x轴顺时针
-                }else if(this._normalize.equals(this._yLineAd)){
+                }else if(this._normalize.equals(CubeUntils.yLineAd))
+                {
                     direction = direction+0.2;//绕x轴逆时针
-                }else if(this._normalize.equals(this._xLine)){
+                }else if(this._normalize.equals(CubeUntils.xLine))
+                {
                     direction = direction+0.3;//绕y轴顺时针
-                }else{
+                }else
+                {
                     direction = direction+0.4;//绕y轴逆时针
                 }
                 break;
             case zAngleAd:
                 direction = 5;//向z轴反方向旋转90度
-                if(this._normalize.equals(this._yLine)){
+                if(this._normalize.equals(CubeUntils.yLine))
+                {
                     direction = direction+0.1;//绕x轴逆时针
-                }else if(this._normalize.equals(this._yLineAd)){
+                }else if(this._normalize.equals(CubeUntils.yLineAd))
+                {
                     direction = direction+0.2;//绕x轴顺时针
-                }else if(this._normalize.equals(this._xLine)){
+                }else if(this._normalize.equals(CubeUntils.xLine))
+                {
                     direction = direction+0.3;//绕y轴逆时针
-                }else{
+                }else
+                {
                     direction = direction+0.4;//绕y轴顺时针
                 }
                 break;
@@ -437,16 +533,7 @@ export class MagicSquare
         return direction;
     }
 
-    //获取数组中的最小值
-    public min(arr:number[]){
-        var min = arr[0];
-        for(var i=1;i<arr.length;i++){
-            if(arr[i]<min){
-                min = arr[i];
-            }
-        }
-        return min;
-    }
+
 
     //根据方向获得运动元素
     public getBoxs(target,direction){
@@ -454,9 +541,9 @@ export class MagicSquare
         var targetId = target.object.cubeIndex;
         var ids = [];    
         for(var i=0;i<this._cubes.length;i++){
-            ids.push(this._cubes[i].cubeIndex);
+            ids.push(this._cubes[i]['cubeIndex']);
         }
-        var minId = this.min(ids);
+        var minId = CubeUntils.min(ids);
         targetId = targetId-minId;
         var numI = parseInt((targetId/9).toString());
         var numJ = targetId%9;
@@ -473,7 +560,7 @@ export class MagicSquare
             case 3.3:
             case 3.4:
                 for(var i=0;i<this._cubes.length;i++){
-                    var tempId = this._cubes[i].cubeIndex-minId;
+                    var tempId = this._cubes[i]['cubeIndex']-minId;
                     if(numI===parseInt((tempId/9).toString())){
                         boxs.push(this._cubes[i]);
                     }
@@ -489,7 +576,7 @@ export class MagicSquare
             case 5.3:
             case 5.4:
                 for(var i=0;i<this._cubes.length;i++){
-                    var tempId = this._cubes[i].cubeIndex-minId;
+                    var tempId = this._cubes[i]["cubeIndex"]-minId;
                     if(parseInt((numJ/3).toString())===parseInt((tempId%9/3).toString())){
                         boxs.push(this._cubes[i]);
                     }
@@ -505,7 +592,7 @@ export class MagicSquare
             case 5.1:
             case 5.2:
                 for(var i=0;i<this._cubes.length;i++){
-                    var tempId = this._cubes[i].cubeIndex-minId;
+                    var tempId = this._cubes[i]["cubeIndex"]-minId;
                     if(tempId%9%3===numJ%3){
                         boxs.push(this._cubes[i]);
                     }
@@ -524,9 +611,9 @@ export class MagicSquare
             var temp1 = elements[i];
             for(var j=0;j<this._initStatus.length;j++){
                 var temp2 = this._initStatus[j];
-                if( Math.abs(temp1.position.x - temp2.x)<=this._cubeParams.len/2 && 
-                    Math.abs(temp1.position.y - temp2.y)<=this._cubeParams.len/2 && 
-                    Math.abs(temp1.position.z - temp2.z)<=this._cubeParams.len/2 ){
+                if( Math.abs(temp1.position.x - temp2.x)<=MagicSquare.CubeParams.len/2 && 
+                    Math.abs(temp1.position.y - temp2.y)<=MagicSquare.CubeParams.len/2 && 
+                    Math.abs(temp1.position.z - temp2.z)<=MagicSquare.CubeParams.len/2 ){
                     temp1.cubeIndex = temp2.cubeIndex;
                     break;
                 }
@@ -556,7 +643,8 @@ export class MagicSquare
             case 1.2:
             case 2.4:
             case 3.3:
-                for(var i=0;i<elements.length;i++){
+                for(var i=0;i<elements.length;i++)
+                {
                     this.rotateAroundWorldZ(elements[i],-90*Math.PI/180*(currentstamp-laststamp)/totalTime);
                 }
                 break;
@@ -565,7 +653,8 @@ export class MagicSquare
             case 1.1:
             case 2.3:
             case 3.4:
-                for(var i=0;i<elements.length;i++){
+                for(var i=0;i<elements.length;i++)
+                {
                     this.rotateAroundWorldZ(elements[i],90*Math.PI/180*(currentstamp-laststamp)/totalTime);
                 }
                 break;
@@ -613,8 +702,10 @@ export class MagicSquare
         //     window.requestAnimationFrame(this.rotateAnimation.bind(this));
         // }
 
-        if(currentstamp-startstamp<totalTime){
-            window.requestAnimationFrame(function(timestamp){
+        if(currentstamp-startstamp<totalTime)
+        {
+            window.requestAnimationFrame(function(timestamp)
+            {
                 this.rotateAnimation(elements,direction,timestamp,startstamp,currentstamp);
             }.bind(this));
         }
@@ -638,7 +729,9 @@ export class MagicSquare
         obj.position.x = Math.cos(rad)*x0+Math.sin(rad)*z0;
         obj.position.z = Math.cos(rad)*z0-Math.sin(rad)*x0;
     }
-    public rotateAroundWorldZ(obj,rad){
+
+    public rotateAroundWorldZ(obj,rad)
+    {
         var x0 = obj.position.x;
         var y0 = obj.position.y;
         var q = new THREE.Quaternion(); 
@@ -648,7 +741,9 @@ export class MagicSquare
         obj.position.x = Math.cos(rad)*x0-Math.sin(rad)*y0;
         obj.position.y = Math.cos(rad)*y0+Math.sin(rad)*x0;
     }
-    public rotateAroundWorldX(obj,rad){
+
+    public rotateAroundWorldX(obj,rad)
+    {
         var y0 = obj.position.y;
         var z0 = obj.position.z;
         var q = new THREE.Quaternion(); 

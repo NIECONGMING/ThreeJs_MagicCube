@@ -3,38 +3,43 @@ import { OrbitControls } from '/jsm/controls/OrbitControls'
 import { MagicSquare } from './magicClient';
 
 
-const magiicSquare = new MagicSquare();
-// const scene: THREE.Scene = new THREE.Scene();
+// const magiicSquare = new MagicSquare();
 
-// const camera: THREE.PerspectiveCamera = new THREE.PerspectiveCamera(
-//   75,
-//   window.innerWidth / window.innerHeight,
-//   0.1,
-//   1000
-// );
 
-// const renderer: THREE.WebGLRenderer = new THREE.WebGLRenderer();
-// renderer.setSize(window.innerWidth, window.innerHeight);
-// document.body.appendChild(renderer.domElement);
 
-// const geometry: THREE.BoxGeometry = new THREE.BoxGeometry();
-// const material: THREE.MeshBasicMaterial = new THREE.MeshBasicMaterial({
-//   color: 0x00ff00,
-//   wireframe: true,
-// });
+export class clientMain
+{
+    private static _instance:clientMain;
+    private _magiicSquare:MagicSquare;
 
-// const cube: THREE.Mesh = new THREE.Mesh(geometry, material);
-// scene.add(cube);
+    public static get instance():clientMain
+    {
+        if(!this._instance)
+        {   
+            this._instance = new clientMain();
+        }
+        return this._instance; 
+    }
 
-// camera.position.z = 2;
 
-// var animate = function () {
-//   requestAnimationFrame(animate);
+    constructor()
+    {
+        
+        this._magiicSquare = new MagicSquare();
+    }
 
-//   cube.rotation.x += 0.01;
-//   cube.rotation.y += 0.01;
+    public start()
+    {
+        console.log('start');
+        window['ClientMain'] = clientMain.instance;
+    }
 
-//   renderer.render(scene, camera);
-// };
+}
 
-// animate();
+
+var start = function () {
+    console.log('启动魔方')
+    clientMain.instance.start();
+};
+
+start();
